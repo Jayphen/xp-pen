@@ -1,85 +1,82 @@
-***THIS REPOSITORY IS NOT ASSOCIATED WITH XP-PEN IN ANY WAY***
---------------------------------------------------------------
+# XP-Pen ACK05 Remote for macOS
 
-Summary:
---------
-A Python library for the [XP Pen ACK05 Wireless Shortcut Remote](https://www.amazon.com/ACK05-Wireless-Bluetooth-Programmable-Customized/dp/B0BVW3S1QR). Maps remote key presses to async Python callbacks — use it to control Home Assistant, trigger scripts, or run arbitrary code.
+A native macOS menubar app for the [XP-Pen ACK05 Wireless Shortcut Remote](https://www.amazon.com/ACK05-Wireless-Bluetooth-Programmable-Customized/dp/B0BVW3S1QR). Map any of the 11 buttons and scroll wheel to keyboard shortcuts, media controls, volume, or shell commands — over **USB or Bluetooth**.
 
-Supports both **USB dongle** and **Bluetooth** on macOS.
+> **This project is not associated with XP-Pen in any way.**
 
-<img width="1718" alt="image" src="https://github.com/user-attachments/assets/c1cb42a7-918b-4efb-ba70-b09ce3c78fda">
+## Features
 
-Requirements:
--------------
-- macOS 12+
-- Python 3.11+
-- Swift 5.9+ (to build the HID helper)
+- **USB + Bluetooth** — works with the 2.4GHz USB dongle or Bluetooth Low Energy, auto-detects both
+- **11 buttons + scroll wheel** — every input is mappable
+- **Press, double-press, and long-press** — each button supports three gesture types
+- **Keyboard shortcuts** — record any key combo (⌘⇧K, ⌃Space, etc.)
+- **Media controls** — play/pause, next/previous track
+- **Volume & mute** — scroll wheel as a volume knob
+- **Shell commands** — run anything
+- **Visual topology** — interactive diagram of the remote that highlights on press and navigates to button settings
+- **Lives in the menubar** — no dock icon, launches at login
 
-Installation:
--------------
+## Install
+
+### From GitHub Releases
+
+Download `XP-Pen-Remote-<version>.zip` from [Releases](https://github.com/Jayphen/xp-pen/releases), unzip, and drag to `/Applications`.
+
+### Build from source
+
+Requires Swift 5.9+ and macOS 14+.
 
 ```bash
-# Clone the repo
 git clone https://github.com/Jayphen/xp-pen.git
-cd xp-pen
+cd xp-pen/menubar_app
+swift build -c release
+./scripts/build-app.sh
+open build/XP-Pen\ Remote.app
+```
 
-# Build the Swift HID helper
+## macOS Permissions
+
+Grant these in **System Settings > Privacy & Security**:
+
+| Permission | Why |
+|---|---|
+| **Input Monitoring** | Reading HID reports from the remote (grant to your terminal or the app) |
+| **Accessibility** | Sending keyboard shortcuts and media keys |
+| **Bluetooth** | Connecting via BLE (prompted automatically) |
+
+## Run at Login
+
+Copy the built `.app` to `/Applications`, then add it to **System Settings > General > Login Items**.
+
+## Configuration
+
+Button mappings are stored in `~/.config/xp-pen/mappings.json` and persist across restarts.
+
+## Python Library
+
+A Python library is also included for programmatic control. See [`xp_pen/`](xp_pen/) and [`examples/`](examples/).
+
+```bash
 cd hid_helper && swift build -c release && cd ..
-
-# Install the Python package
 pip install -e .
+python examples/basic.py
 ```
 
-### macOS Permissions
+## Architecture
 
-The HID helper needs the following macOS permissions (System Settings > Privacy & Security):
+| Component | Role |
+|---|---|
+| `menubar_app/` | SwiftUI menubar app with button mapper UI |
+| `hid_helper/` | Standalone Swift binary — USB (IOHIDManager) + BLE (CoreBluetooth) |
+| `xp_pen/` | Python library that spawns `hid_helper` and processes events |
+| `examples/` | Python usage examples (basic event logging, volume control) |
 
-- **Input Monitoring** — grant to your terminal app (Ghostty, Terminal, iTerm, etc.)
-- **Accessibility** — may be required for some configurations
-- **Bluetooth** — if using Bluetooth, allow when prompted
+The device communicates via a vendor-specific HID interface (USB) or a custom BLE service (`FFE0`, characteristic `0003`). Both transports produce identical report formats.
 
-Usage:
---------------
+## Attribution
 
-The remote works over **USB dongle** or **Bluetooth** — the library auto-detects whichever is connected.
+Based on [smartfastlabs/xp-pen](https://github.com/smartfastlabs/xp-pen) by Todd Sifleet.
 
-See [examples](examples/) for full usage.
+## License
 
-```python
-import asyncio
-from xp_pen import Event, XPPenClient
-
-async def on_event(event: Event):
-    print(f"[XP Pen] EVENT: {event.method}:{event.value}")
-
-client = XPPenClient(on_event)
-asyncio.run(client.start())
-```
-
-There are 5 *methods* an event can have:
-
-- `down`
-- `up`
-- `scroll`
-- `double-down` (press within 0.5 seconds of the previous)
-- `long-down` (held for more than 0.5 seconds)
-
-Every event has a `value` — for buttons this is a numeric string, for scroll it's `clockwise` or `counter-clockwise`.
-
-Architecture:
--------------
-
-The library uses a small Swift helper binary (`hid_helper/`) that handles low-level device communication:
-
-- **USB**: Uses `IOHIDManager` to read HID reports from the dongle
-- **Bluetooth**: Uses `CoreBluetooth` to connect to the device's custom BLE service (`FFE0`) and subscribe to notifications
-
-Both transports output the same data format. The Python library spawns the helper as a subprocess and processes its output into events.
-
-Attribution:
-------------
-Based on [smartfastlabs/xp-pen](https://github.com/smartfastlabs/xp-pen) by Todd Sifleet. The original library used `pyusb` for USB-only support. This fork replaces it with a Swift helper for native macOS USB + Bluetooth support.
-
-License:
---------
-See LICENSE
+See [LICENSE](LICENSE).
