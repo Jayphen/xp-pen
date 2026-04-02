@@ -4,6 +4,9 @@ A native macOS menubar app for the [XP-Pen ACK05 Wireless Shortcut Remote](https
 
 > **This project is not associated with XP-Pen in any way.**
 
+<img width="1056" height="1191" alt="image" src="https://github.com/user-attachments/assets/857ffaa0-bcd3-40df-8be6-d8aff0f11d75" />
+
+
 ## Features
 
 - **USB + Bluetooth** — works with the 2.4GHz USB dongle or Bluetooth Low Energy, auto-detects both
