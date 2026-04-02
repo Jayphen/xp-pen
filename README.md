@@ -25,6 +25,14 @@ A native macOS menubar app for the [XP-Pen ACK05 Wireless Shortcut Remote](https
 
 Download `XP-Pen-Remote-<version>.zip` from [Releases](https://github.com/Jayphen/xp-pen/releases), unzip, and drag to `/Applications`.
 
+Since the app isn't notarized, macOS will block it on first launch. To fix this:
+
+```bash
+xattr -cr /Applications/XP-Pen\ Remote.app
+```
+
+Or right-click the app and select **Open**.
+
 ### Build from source
 
 Requires Swift 5.9+ and macOS 14+.
