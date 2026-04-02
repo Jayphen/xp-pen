@@ -3,36 +3,78 @@
 
 Summary:
 --------
-I was on a mission to build a remote for my house (lights, blinds, dog door, etc.), after a bunch of research I found the [XP Pen ACK05 Wireless Shortcut Remote](https://www.amazon.com/ACK05-Wireless-Bluetooth-Programmable-Customized/dp/B0BVW3S1QR).  It is  wireless, usb, decent range, awesome battery life, scroll wheel, small; all around awesome!
+A Python library for the [XP Pen ACK05 Wireless Shortcut Remote](https://www.amazon.com/ACK05-Wireless-Bluetooth-Programmable-Customized/dp/B0BVW3S1QR). Maps remote key presses to async Python callbacks — use it to control Home Assistant, trigger scripts, or run arbitrary code.
+
+Supports both **USB dongle** and **Bluetooth** on macOS.
 
 <img width="1718" alt="image" src="https://github.com/user-attachments/assets/c1cb42a7-918b-4efb-ba70-b09ce3c78fda">
 
-I'm already using [Home Assistant](https://www.home-assistant.io/) and some other creative stuff; how hard could it be 🤷‍♂️.  This allowed me to map remote key presses to Home Assistant API calls, but you can use it to run arbitrary python code.
-
+Requirements:
+-------------
+- macOS 12+
+- Python 3.11+
+- Swift 5.9+ (to build the HID helper)
 
 Installation:
 -------------
-  
+
+```bash
+# Clone the repo
+git clone https://github.com/Jayphen/xp-pen.git
+cd xp-pen
+
+# Build the Swift HID helper
+cd hid_helper && swift build -c release && cd ..
+
+# Install the Python package
+pip install -e .
 ```
-pip install xp-pen
-```
+
+### macOS Permissions
+
+The HID helper needs the following macOS permissions (System Settings > Privacy & Security):
+
+- **Input Monitoring** — grant to your terminal app (Ghostty, Terminal, iTerm, etc.)
+- **Accessibility** — may be required for some configurations
+- **Bluetooth** — if using Bluetooth, allow when prompted
 
 Usage:
 --------------
 
-**YOU MUST USE THE USB "DONGLE", BLUETOOTH DOES NOT WORK**
+The remote works over **USB dongle** or **Bluetooth** — the library auto-detects whichever is connected.
 
-See [examples](https://github.com/smartfastlabs/xp-pen/tree/main/examples).
+See [examples](examples/) for full usage.
+
+```python
+import asyncio
+from xp_pen import Event, XPPenClient
+
+async def on_event(event: Event):
+    print(f"[XP Pen] EVENT: {event.method}:{event.value}")
+
+client = XPPenClient(on_event)
+asyncio.run(client.start())
+```
 
 There are 5 *methods* an event can have:
 
-- down
-- up
-- scroll
-- double-down (Click within .5 seconds of the previous)
-- long-down (Down for more than 1 second)
+- `down`
+- `up`
+- `scroll`
+- `double-down` (press within 0.5 seconds of the previous)
+- `long-down` (held for more than 0.5 seconds)
 
-Every event has a value, this corresponds to the button pressed; see image above.
+Every event has a `value` — for buttons this is a numeric string, for scroll it's `clockwise` or `counter-clockwise`.
+
+Architecture:
+-------------
+
+The library uses a small Swift helper binary (`hid_helper/`) that handles low-level device communication:
+
+- **USB**: Uses `IOHIDManager` to read HID reports from the dongle
+- **Bluetooth**: Uses `CoreBluetooth` to connect to the device's custom BLE service (`FFE0`) and subscribe to notifications
+
+Both transports output the same data format. The Python library spawns the helper as a subprocess and processes its output into events.
 
 License:
 --------

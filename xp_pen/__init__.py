@@ -1,18 +1,23 @@
-import array
 import asyncio
 import logging
+import os
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Awaitable, Callable, Optional
 from uuid import UUID, uuid4
 
-import usb.backend.libusb1
-import usb.core
-import usb.util
-
 VENDOR_ID = 0x28BD
 PRODUCT_ID = 0x0202
+
+# Path to the Swift HID helper binary (relative to this file)
+HID_HELPER_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "hid_helper",
+    ".build",
+    "release",
+    "hid_helper",
+)
 
 logger = logging.getLogger("xp-pen")
 logger.setLevel(logging.INFO)
@@ -35,10 +40,12 @@ class XPPenClient:
     def __init__(
         self,
         on_event: Callable[[Event], Awaitable[Any]],
+        hid_helper_path: Optional[str] = None,
         **kwargs,
     ) -> None:
         self._on_event: Callable[[Event], Awaitable[Any]] = on_event
         self._current_event: Optional[Event] = None
+        self._hid_helper_path = hid_helper_path or HID_HELPER_PATH
 
     async def start(self) -> None:
         while True:
@@ -50,38 +57,71 @@ class XPPenClient:
             await asyncio.sleep(5)
 
     async def run(self) -> None:
-        device = usb.core.find(
-            idVendor=VENDOR_ID,
-            idProduct=PRODUCT_ID,
+        if not os.path.exists(self._hid_helper_path):
+            raise FileNotFoundError(
+                f"HID helper not found at {self._hid_helper_path}. "
+                "Build it with: cd hid_helper && swift build -c release"
+            )
+
+        process = await asyncio.create_subprocess_exec(
+            self._hid_helper_path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        if device is None:
-            raise FileNotFoundError("usb not found")
 
-        if device.is_kernel_driver_active(0):
-            device.detach_kernel_driver(0)
-            logger.info("kernel driver detached")
-        else:
-            logger.info("no kernel driver attached")
-
-        usb.util.claim_interface(device, 0)
-        endpoint = device[0][(0, 0)][0]
-        is_flushing_old_messages: bool = True
+        # Wait for "ready" on stderr (skip setup lines)
         while True:
-            try:
-                data: array.array = device.read(endpoint.bEndpointAddress, 100, 100)
-                button_value = str(data[1] << 8 | data[2])
-                if is_flushing_old_messages:
-                    logger.info("USB STALE MESSAGE: %s", button_value)
-                else:
-                    self._current_event = await self._process_input(button_value)
-                    if self._current_event:
-                        await self._on_event(self._current_event)
+            stderr_line = await process.stderr.readline()
+            msg = stderr_line.decode().strip()
+            logger.info("hid_helper: %s", msg)
+            if msg == "ready":
+                break
 
-            except usb.core.USBTimeoutError as e:
+        is_flushing_old_messages: bool = True
+
+        try:
+            while True:
+                line = await process.stdout.readline()
+                if not line:
+                    break
+
+                line = line.decode().strip()
+                if not line:
+                    continue
+
+                parts = line.split(",")
+                if len(parts) < 2:
+                    continue
+
+                button = int(parts[0])
+                scroll = int(parts[1])
+
+                button_value = self._map_button(button, scroll)
+
                 if is_flushing_old_messages:
-                    is_flushing_old_messages = False
-                    logger.info("USB DONE FLUSHING")
-                await asyncio.sleep(0.100)
+                    if button == 0 and scroll == 0:
+                        is_flushing_old_messages = False
+                        logger.info("DONE FLUSHING")
+                    else:
+                        logger.info("STALE MESSAGE: %s", button_value)
+                    continue
+
+                self._current_event = await self._process_input(button_value)
+                if self._current_event:
+                    await self._on_event(self._current_event)
+
+        finally:
+            process.terminate()
+            await process.wait()
+
+    def _map_button(self, button: int, scroll: int) -> str:
+        if scroll == 1:
+            return "clockwise"
+        elif scroll == 2:
+            return "counter-clockwise"
+
+        # Strip touch/proximity bit (bit 4) to get button number
+        return str(button & 0x0F)
 
     async def _process_input(self, value: str) -> Optional[Event]:
         method: str = "down"
@@ -91,8 +131,7 @@ class XPPenClient:
             method = "up"
             value = self._current_event.value
         else:
-            if value in ("342", "343"):
-                value = "clockwise" if value == "343" else "counter-clockwise"
+            if "clockwise" in value:
                 method = "scroll"
 
             elif self._current_event:
