@@ -3,3 +3,5 @@
 dist
 .venv/
 hid_helper/.build/
+menubar_app/.build/
+menubar_app/build/

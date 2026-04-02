@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>LSUIElement</key>
+    <true/>
+    <key>CFBundleName</key>
+    <string>XP-Pen Remote</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.jayphen.xp-pen-remote</string>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>XP-Pen Remote needs Bluetooth to connect to your shortcut remote.</string>
+</dict>
+</plist>
