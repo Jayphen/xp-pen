@@ -76,6 +76,10 @@ The library uses a small Swift helper binary (`hid_helper/`) that handles low-le
 
 Both transports output the same data format. The Python library spawns the helper as a subprocess and processes its output into events.
 
+Attribution:
+------------
+Based on [smartfastlabs/xp-pen](https://github.com/smartfastlabs/xp-pen) by Todd Sifleet. The original library used `pyusb` for USB-only support. This fork replaces it with a Swift helper for native macOS USB + Bluetooth support.
+
 License:
 --------
 See LICENSE

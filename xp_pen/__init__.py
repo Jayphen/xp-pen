@@ -77,7 +77,10 @@ class XPPenClient:
             if msg == "ready":
                 break
 
-        is_flushing_old_messages: bool = True
+        # Flush stale buffered messages by discarding everything
+        # received in the first 0.5 seconds
+        flush_until = asyncio.get_event_loop().time() + 0.5
+        flushing = True
 
         try:
             while True:
@@ -96,15 +99,14 @@ class XPPenClient:
                 button = int(parts[0])
                 scroll = int(parts[1])
 
-                button_value = self._map_button(button, scroll)
-
-                if is_flushing_old_messages:
-                    if button == 0 and scroll == 0:
-                        is_flushing_old_messages = False
+                if flushing:
+                    if asyncio.get_event_loop().time() >= flush_until:
+                        flushing = False
                         logger.info("DONE FLUSHING")
                     else:
-                        logger.info("STALE MESSAGE: %s", button_value)
-                    continue
+                        continue
+
+                button_value = self._map_button(button, scroll)
 
                 self._current_event = await self._process_input(button_value)
                 if self._current_event:
