@@ -87,7 +87,9 @@ class DeviceManager: NSObject, ObservableObject, CBCentralManagerDelegate, CBPer
         }
     }
     @Published var lastEvent: ButtonEvent?
+    @Published var activeKey: String = ""
     @Published var lastGesture: String = ""
+    private var activeKeyTimer: DispatchWorkItem?
     @Published var mappings: [String: ButtonMapping] = [:] {
         didSet { saveMappings() }
     }
@@ -128,6 +130,17 @@ class DeviceManager: NSObject, ObservableObject, CBCentralManagerDelegate, CBPer
 
         DispatchQueue.main.async {
             self.lastEvent = event
+
+            if !event.isRelease {
+                // Set active key and keep it visible
+                self.activeKeyTimer?.cancel()
+                self.activeKey = event.key
+            } else {
+                // Clear active key after a short delay so highlight is visible
+                let timer = DispatchWorkItem { self.activeKey = "" }
+                self.activeKeyTimer = timer
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: timer)
+            }
         }
 
         // Scroll events fire immediately, no gesture detection
