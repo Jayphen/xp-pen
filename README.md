@@ -63,24 +63,12 @@ Copy the built `.app` to `/Applications`, then add it to **System Settings > Gen
 
 Button mappings are stored in `~/.config/xp-pen/mappings.json` and persist across restarts.
 
-## Python Library
-
-A Python library is also included for programmatic control. See [`xp_pen/`](xp_pen/) and [`examples/`](examples/).
-
-```bash
-cd hid_helper && swift build -c release && cd ..
-pip install -e .
-python examples/basic.py
-```
-
 ## Architecture
 
 | Component | Role |
 |---|---|
 | `menubar_app/` | SwiftUI menubar app with button mapper UI |
 | `hid_helper/` | Standalone Swift binary — USB (IOHIDManager) + BLE (CoreBluetooth) |
-| `xp_pen/` | Python library that spawns `hid_helper` and processes events |
-| `examples/` | Python usage examples (basic event logging, volume control) |
 
 The device communicates via a vendor-specific HID interface (USB) or a custom BLE service (`FFE0`, characteristic `0003`). Both transports produce identical report formats.
 
